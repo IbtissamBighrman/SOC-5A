@@ -1,0 +1,40 @@
+title: Suspicious Remote Access Tool Persistence via Registry Modification
+id: pseudo-sigma-rat-persistence-registry
+status: experimental
+
+logsource:
+  product: windows
+  service: sysmon
+  category: registry_event
+
+detection:
+
+  selection_event:
+    EventCode: 13
+
+  selection_targetobject:
+    TargetObject|contains:
+      - "\\Microsoft\\Windows\\CurrentVersion\\Run"
+      - "\\System\\CurrentControlSet\\Services\\"
+      - "ImagePath"
+
+  selection_details:
+    Details|contains:
+      - "anydesk"
+      - "teamviewer"
+      - "screenconnect"
+      - "ammyy"
+      - "tera.exe"
+      - "zoho"
+      - "rustdesk"
+      - "splashtop"
+
+  condition: selection_event and selection_targetobject and selection_details
+
+fields:
+  - _time
+  - Computer
+  - Image
+  - User
+  - TargetObject
+  - Details
