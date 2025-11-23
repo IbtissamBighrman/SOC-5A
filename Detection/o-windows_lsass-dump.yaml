@@ -1,0 +1,51 @@
+title: Suspicious LSASS Access or Dumping Activity
+id: pseudo-sigma-lsass-dump
+status: experimental
+
+logsource:
+  product: windows
+  service: sysmon
+
+detection:
+
+  selection_rundll32_minidump:
+    EventCode: 1
+    Image|contains: "\\rundll32.exe"
+    CommandLine|contains:
+      - "comsvcs.dll"
+      - "MiniDump"
+
+  selection_procdump_lsass:
+    EventCode: 1
+    Image|contains: "procdump"
+    CommandLine|contains:
+      - "-ma"
+      - "lsass"
+
+  selection_taskmgr_lsass:
+    EventCode: 1
+    Image|contains: "\\taskmgr.exe"
+    CommandLine|contains: "lsass"
+
+  selection_processhacker:
+    EventCode: 1
+    Image|contains: "processhacker"
+
+  selection_event10_lsass:
+    EventCode: 10
+    TargetImage|contains: "lsass.exe"
+    Image|endswith: "\\lsass.exe"
+    # negated later
+
+  condition: selection_rundll32_minidump or
+             selection_procdump_lsass or
+             selection_taskmgr_lsass or
+             selection_processhacker or
+             (selection_event10_lsass and not selection_processhacker)
+
+fields:
+  - Image
+  - CommandLine
+  - TargetImage
+  - EventCode
+  - alert_severity_id
