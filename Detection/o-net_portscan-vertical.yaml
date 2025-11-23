@@ -1,0 +1,21 @@
+title: Détection de scan de ports vertical
+description: Détecte les machines effectuant un scan de ports vertical en se connectant à de nombreux ports sur la même cible.
+author: Équipe SOC
+logsource:
+    product: linux
+    service: réseau
+detection:
+    selection:
+        unique_port_count: '>50'
+    aggregation:
+        group_by:
+            - src_ip
+            - dst_ip
+        count: unique_port_count
+    condition: selection
+fields:
+    - src_ip
+    - dst_ip
+    - unique_port_count
+    - ports_contacted
+level: high

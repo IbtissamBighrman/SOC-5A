@@ -1,0 +1,260 @@
+{
+  "name": "webhook_alert",
+  "nodes": [
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "httpMethod": [
+          "POST"
+        ],
+        "path": "alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        32,
+        0
+      ],
+      "id": "bfb7a66a-4bc9-40db-8dc7-790a0b412e30",
+      "name": "Webhook",
+      "webhookId": "86265a65-5386-4683-9d13-ff85b51ac085"
+    },
+    {
+      "parameters": {
+        "preBuiltAgentsCalloutHttpRequest": "",
+        "httpVariantWarning": "",
+        "curlImport": "",
+        "method": "POST",
+        "": "",
+        "url": "https://iris-nginx/alerts/add",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "dfirIrisApi",
+        "provideSslCertificates": false,
+        "sendQuery": false,
+        "sendHeaders": false,
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alert_title",
+              "value": "={{ $json.body.result.alert_title }}"
+            },
+            {
+              "name": "alert_description",
+              "value": "={{ $json.body.result.alert_description }}"
+            },
+            {
+              "name": "alert_source",
+              "value": "={{ $json.body.result.host }}:{{ $json.body.result._sourcetype }}"
+            },
+            {
+              "name": "alert_source_ref",
+              "value": "="
+            },
+            {
+              "name": "alert_severity_id",
+              "value": "={{ $json.body.result.alert_severity_id }}"
+            },
+            {
+              "name": "alert_status_id",
+              "value": "2"
+            },
+            {
+              "name": "alert_source_event_time",
+              "value": "={{$json.body.result[\"info.utc_time\"]}}"
+            },
+            {
+              "name": "alert_customer_id",
+              "value": "1"
+            },
+            {
+              "name": "alert_source_link",
+              "value": "={{ $json.body.results_link }}"
+            },
+            {
+              "name": "alert_source_ref",
+              "value": "={{ $json.body.alert_source_ref }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        },
+        "infoMessage": ""
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "164f103f-52a1-4d88-98c9-606f713374e6",
+      "name": "DFIR-IRIS HTTP Request",
+      "extendsCredential": "dfirIrisApi",
+      "credentials": {
+        "dfirIrisApi": {
+          "id": "Z8TDwM0jBwst3Gg3",
+          "name": "DFIR-IRIS account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "# Dictionnaire : mapping search_name → gravité\nimport ipaddress\n\nfor item in _input.all():\n    def abuse_link(ip):\n      try:\n          if ip and not ipaddress.ip_address(ip).is_private:\n              return f'<a href=\"https://www.abuseipdb.com/check/{ip}\" target=\"_blank\">{ip}</a>'\n      except ValueError:\n          pass\n      return ip or \"N/A\"\n\n    body = item.json.get(\"body\", {})\n    result = body.get(\"result\", {})\n\n    # --- 1️⃣ Correction du results_link + transformation en lien HTML cliquable ---\n    raw_link = body.get(\"results_link\")\n\n    if raw_link:\n        corrected_link = raw_link.replace(\"07055f1f313d:8000\", \"100.67.56.61:8000\").strip()\n      \n        body[\"results_link\"] =corrected_link\n        host = result.get(\"host\", \"Unknown Host\")\n      \n        body[\"alert_source_ref\"]=f\"\"\"\n    <ul>\n        <li><strong>Command line: </strong>{result.get(\"data.command_line\", \"default\")}</li>\n        <li><strong>User:</strong> {result.get(\"info.task.user\", \"default\")}</li>\n        <li><strong>Source: </strong>{abuse_link(result.get('data.src.ip', 'N/A'))}:{result.get('data.src.port', 'N/A')}</li>\n        <li><strong>Destination: </strong>{abuse_link(result.get('data.dst.ip', 'N/A'))}:{result.get('data.dst.port', 'N/A')}</li>\n    </ul>\n    \n    \"\"\"\n      # f\"<h3>Host:{host}</h3><h3>Host:{host}</h3><h3>Host:{host}</h3><h3>Host:{host}</h3>\"\n\n    # --- 2️⃣ Récupération des valeurs dynamiques ---\n    search_name = body.get(\"search_name\", \"default\")\n    host = result.get(\"host\", \"Unknown Host\")\n\n    # --- 3️⃣ Titre dynamique ---\n    result[\"alert_title\"] = f\"{search_name} sur {host}\"\n\n\n\n    # --- 5️⃣ Description dynamique ---\n    result[\"alert_description\"] = f\"Alerte générée par {search_name} sur {host}\"\n    body[\"alert_source_content\"]={\n        \"host\": result.get(\"host\"),\n        \"command_line\": result.get(\"data.target.command_line\"),\n        \"utc_time\": result.get(\"info.utc_time\") or result.get(\"info.utc_time\"),\n        \"task\": result.get(\"task\"),\n        \"network\": result.get(\"network\")\n    }\n    # Mise à jour JSON\n    body[\"result\"] = result\n    item.json[\"body\"] = body\n\nreturn _input.all()\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        0
+      ],
+      "id": "a9037d57-3f7a-4d31-abe5-e51fedb77108",
+      "name": "Code in Python (Beta)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "08b680d6-2fc4-4d58-b745-324809a10ced",
+              "leftValue": "={{ $json.body.result.alert_severity_id }}",
+              "rightValue": "6",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        -304
+      ],
+      "id": "280718cc-e413-4a7d-87c4-67b2f5f29f99",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@demomailtrap.co",
+        "toEmail": "projetgr604@gmail.com",
+        "subject": "=Critical Alert: {{$json.body.result.alert_title}}",
+        "html": "=<div style=\"font-family: Arial, sans-serif; background: #f4f4f4; border-radius: 12px; padding: 18px; border-left: 6px solid #d9534f; color: #333;\">\n  \n  <h1 style=\"font-size: 22px; font-weight: bold; margin-bottom: 6px; color: #c9302c;\">\n    🚨 Alerte Critique Déclenchée\n  </h1>\n\n  <p style=\"font-size: 15px; line-height: 1.5;\">\n    Une alerte critique a été déclenchée le \n    <strong>{{ $json.body.result[\"info.utc_time\"] || \"N/A\" }}</strong>,\n    concernant l’hôte \n    <strong>{{ $json.body.result.host || \"N/A\" }}</strong>\n    pour le client\n    <strong>DunderMifflin</strong>.\n  </p>\n\n  <div style=\"margin-top: 14px;\">\n    <span style=\"font-weight: bold;\">Titre de l’alerte :</span><br>\n    {{ $json.body.result.alert_title }}\n  </div>\n\n  <div style=\"margin-top: 14px;\">\n    <span style=\"font-weight: bold;\">Description :</span><br>\n    {{ $json.body.result.alert_description }}\n  </div>\n\n  <div style=\"margin-top: 14px; font-size: 15px;\">\n    Merci de traiter cette alerte <strong>dans les plus brefs délais</strong> \n    afin de garantir la continuité et la sécurité du service.\n  </div>\n\n  <div style=\"margin-top: 18px;\">\n    <a href=\"{{ $json.body.results_link }}\" target=\"_blank\"\n       style=\"background:#0275d8; color:#ffffff; padding:10px 16px; border-radius:6px; text-decoration:none; font-size:15px; display:inline-block;\">\n       🔎 Ouvrir l’alerte dans SPLUNK\n    </a>\n  </div>\n\n</div>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        848,
+        -336
+      ],
+      "id": "974b2ed2-4121-4336-ab60-ea82d4af2c4a",
+      "name": "Send email",
+      "webhookId": "e0abcea7-a559-4fe3-bfec-164c64d4aede",
+      "credentials": {
+        "smtp": {
+          "id": "zwUPJis5BrSpCmWW",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Alerte Critique – Notification Automatisée\n",
+        "height": 256,
+        "width": 736
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        432,
+        -400
+      ],
+      "typeVersion": 1,
+      "id": "d01f0d23-5b4d-4f08-8f61-2363383c246a",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## SPLUNK to IRIS\n",
+        "height": 288,
+        "width": 976,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        -96
+      ],
+      "typeVersion": 1,
+      "id": "5d52ea41-654f-439d-a034-be0eda35c4c8",
+      "name": "Sticky Note1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in Python (Beta)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python (Beta)": {
+      "main": [
+        [
+          {
+            "node": "DFIR-IRIS HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0cf9c4ec-358b-4e6d-93b0-0fcef59a7c76",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "515868e636a691e96026934c5a1f44ca0ff9e4615609ee294de4a6ee5d27ee0b"
+  },
+  "id": "51wBBZHDNt8SMlNw",
+  "tags": []
+}
