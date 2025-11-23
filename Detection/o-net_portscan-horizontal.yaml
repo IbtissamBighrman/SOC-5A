@@ -1,0 +1,30 @@
+title: Suspicious High-Port Scanning with Privileged Ports
+id: pseudo-sigma-wildcard
+status: experimental
+logsource:
+  product: linux
+  service: kunai
+  category: network
+
+detection:
+  selection_proto:
+    data.socket.proto: "TCP"
+
+  selection_src:
+    data.src.ip|startswith:
+      - "10."
+      - "172.16."
+      - "192.168."
+
+  stats_logic:
+    dc_data_dst_port: ">= 500"
+    dc_privileged_dst_port: ">= 20"
+
+  condition: selection_proto and selection_src and stats_logic
+
+fields:
+  - data.src.ip
+  - data.dst.ip
+  - data.dst.port
+  - task.name
+  - _time
