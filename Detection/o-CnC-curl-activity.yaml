@@ -1,0 +1,49 @@
+title: Suspicious Curl Usage Writing to Sensitive Directories
+id: pseudo-sigma-curl-beaconing
+status: experimental
+
+logsource:
+  product: windows
+  service: sysmon
+  category: process_creation
+
+detection:
+
+  selection_event:
+    EventCode:
+      - 1
+      - 11
+
+  selection_image:
+    Image: "C:\\Windows\\System32\\curl.exe"
+
+  selection_output_args:
+    CommandLine|contains:
+      - "-o "
+      - "--output"
+      - "--output-dir"
+
+  selection_dirs:
+    CommandLine|contains:
+      - "\\Windows\\Temp\\"
+      - "\\Users\\Public\\"
+      - "\\ProgramData\\"
+      - "\\AppData\\"
+      - "\\PerfLogs\\"
+    TargetFilename|contains:
+      - "\\Windows\\Temp\\"
+      - "\\Users\\Public\\"
+      - "\\ProgramData\\"
+      - "\\AppData\\"
+      - "\\PerfLogs\\"
+
+  condition: selection_event and selection_image and selection_output_args and selection_dirs
+
+fields:
+  - Image
+  - CommandLine
+  - TargetFilename
+  - User
+  - ParentCommandLine
+  - ParentImage
+  - _time
