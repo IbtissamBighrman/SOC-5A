@@ -1,0 +1,53 @@
+title: Top Ports Massive Horizontal Scan Detection
+id: pseudo-sigma-top-ports
+status: experimental
+
+logsource:
+  product: linux
+  service: kunai
+  category: network
+
+detection:
+  selection_proto:
+    data.socket.proto: "TCP"
+
+  selection_src:
+    data.src.ip|startswith:
+      - "10."
+      - "172.16."
+      - "192.168."
+
+  selection_ports:
+    data.dst.port:
+      - 21
+      - 22
+      - 23
+      - 25
+      - 53
+      - 80
+      - 110
+      - 111
+      - 135
+      - 139
+      - 143
+      - 443
+      - 445
+      - 993
+      - 995
+      - 1723
+      - 3306
+      - 3389
+      - 5900
+      - 8080
+
+  stats_logic:
+    dc_data_dst_ip: ">= 250"
+
+  condition: selection_proto and selection_src and selection_ports and stats_logic
+
+fields:
+  - data.src.ip
+  - data.dst.port
+  - data.dst.ip
+  - task.name
+  - _time
