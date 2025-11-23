@@ -1,0 +1,33 @@
+title: Suspicious Service Creation or Modification via sc.exe
+id: pseudo-sigma-sc-service-modification
+status: experimental
+
+logsource:
+  product: windows
+  service: sysmon
+  category: process_creation
+
+detection:
+
+  selection_event:
+    EventCode: 1
+
+  selection_sc:
+    Image|contains: "\\sc.exe"
+    CommandLine|contains:
+      - " create "
+      - " config "
+
+  selection_legit_scheduler:
+    ParentImage|contains: "\\svchost.exe"
+    ParentCommandLine|contains: "Schedule"
+
+  condition: selection_event and selection_sc and not selection_legit_scheduler
+
+fields:
+  - Image
+  - CommandLine
+  - ParentImage
+  - ParentCommandLine
+  - EventCode
+  - alert_severity_id
