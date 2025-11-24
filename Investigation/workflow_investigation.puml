@@ -1,0 +1,41 @@
+@startuml
+title Workflow d'investigation SOC 
+
+start
+
+:'Alerte détectée sur IRIS';
+:'Analyste consulte l’alerte';
+
+:'Affichage des logs Splunk pour investigation';
+
+:Analyse initiale et qualification;
+
+if (Alerte = Faux Positif ?) then (Oui)
+    :Ajouter une note dans IRIS;
+    :Clôturer l’alerte;
+    stop
+else (Non - Vrai Positif)
+    :'Créer un Case IRIS';
+    :'Regrouper les alertes liées';
+endif
+
+if (Sévérité HIGH ou CRITICAL ?) then (Oui)
+    :'Notifier le client (SLA : 2h)';
+endif
+
+:'Investigation approfondie';
+
+if (Sévérité HIGH ou CRITICAL ?) then (Oui)
+    :'Rapport d’investigation V1 (SLA : 8h)';
+endif
+
+:'Actions complémentaires si nécessaire';
+
+if (Sévérité HIGH ou CRITICAL ?) then (Oui)
+    :'Rapport d’investigation final (72h)';
+endif
+
+:'Clôture du Case';
+stop
+
+@enduml
