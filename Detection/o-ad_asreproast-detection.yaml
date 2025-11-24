@@ -1,0 +1,10 @@
+detection:
+  index: "test"
+  search: |
+    EventCode=4768
+    | where PreAuthType="-" OR PreAuthType="0"
+    | where Status="0x6" OR Status="0x0"
+    | where like(ServiceName, "krbtgt%")
+    | stats count AS attempts, values(TargetUserName) AS users, values(IpAddress) AS sources BY IpAddress
+    | where attempts >= 3
+    | eval detection="AS-REP Roasting brute force", severity="high"
