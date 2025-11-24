@@ -1,0 +1,6 @@
+detection:
+  index: "test"
+  search: |
+    EventCode=4769
+    | where NOT like(Service_Name,"krbtgt%")
+    | eval alert_severity_id=6
