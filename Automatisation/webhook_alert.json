@@ -56,7 +56,7 @@
             },
             {
               "name": "alert_severity_id",
-              "value": "={{ $json.body.result.alert_severity_id }}"
+              "value": "={{ $json.body.alert_severity_id }}"
             },
             {
               "name": "alert_status_id",
@@ -64,7 +64,7 @@
             },
             {
               "name": "alert_source_event_time",
-              "value": "={{$json.body.result[\"info.utc_time\"]}}"
+              "value": "={{ $json.body.UtcTime }}"
             },
             {
               "name": "alert_customer_id",
@@ -104,7 +104,7 @@
     {
       "parameters": {
         "language": "python",
-        "pythonCode": "# Dictionnaire : mapping search_name → gravité\nimport ipaddress\n\nfor item in _input.all():\n    def abuse_link(ip):\n      try:\n          if ip and not ipaddress.ip_address(ip).is_private:\n              return f'<a href=\"https://www.abuseipdb.com/check/{ip}\" target=\"_blank\">{ip}</a>'\n      except ValueError:\n          pass\n      return ip or \"N/A\"\n\n    body = item.json.get(\"body\", {})\n    result = body.get(\"result\", {})\n\n    # --- 1️⃣ Correction du results_link + transformation en lien HTML cliquable ---\n    raw_link = body.get(\"results_link\")\n\n    if raw_link:\n        corrected_link = raw_link.replace(\"07055f1f313d:8000\", \"100.67.56.61:8000\").strip()\n      \n        body[\"results_link\"] =corrected_link\n        host = result.get(\"host\", \"Unknown Host\")\n      \n        body[\"alert_source_ref\"]=f\"\"\"\n    <ul>\n        <li><strong>Command line: </strong>{result.get(\"data.command_line\", \"default\")}</li>\n        <li><strong>User:</strong> {result.get(\"info.task.user\", \"default\")}</li>\n        <li><strong>Source: </strong>{abuse_link(result.get('data.src.ip', 'N/A'))}:{result.get('data.src.port', 'N/A')}</li>\n        <li><strong>Destination: </strong>{abuse_link(result.get('data.dst.ip', 'N/A'))}:{result.get('data.dst.port', 'N/A')}</li>\n    </ul>\n    \n    \"\"\"\n      # f\"<h3>Host:{host}</h3><h3>Host:{host}</h3><h3>Host:{host}</h3><h3>Host:{host}</h3>\"\n\n    # --- 2️⃣ Récupération des valeurs dynamiques ---\n    search_name = body.get(\"search_name\", \"default\")\n    host = result.get(\"host\", \"Unknown Host\")\n\n    # --- 3️⃣ Titre dynamique ---\n    result[\"alert_title\"] = f\"{search_name} sur {host}\"\n\n\n\n    # --- 5️⃣ Description dynamique ---\n    result[\"alert_description\"] = f\"Alerte générée par {search_name} sur {host}\"\n    body[\"alert_source_content\"]={\n        \"host\": result.get(\"host\"),\n        \"command_line\": result.get(\"data.target.command_line\"),\n        \"utc_time\": result.get(\"info.utc_time\") or result.get(\"info.utc_time\"),\n        \"task\": result.get(\"task\"),\n        \"network\": result.get(\"network\")\n    }\n    # Mise à jour JSON\n    body[\"result\"] = result\n    item.json[\"body\"] = body\n\nreturn _input.all()\n"
+        "pythonCode": "import ipaddress\nimport datetime\n\nfor item in _input.all():\n    # --- Safe AbuseIPDB link ---\n    def abuse_link(ip):\n        try:\n            if ip and not ipaddress.ip_address(ip).is_private:\n                return f'<a href=\"https://www.abuseipdb.com/check/{ip}\" target=\"_blank\">{ip}</a>'\n        except Exception:\n            pass\n        return ip or \"N/A\"\n\n    body = item.json.get(\"body\", {})\n    result = body.get(\"result\", {})\n\n    # Correction du results_link\n    raw_link = body.get(\"results_link\")\n    if raw_link:\n        corrected = raw_link.replace(\"07055f1f313d:8000\", \"100.67.56.61:8000\").strip()\n        body[\"results_link\"] = corrected\n\n    # Récupération SAFE des champs \n    info = result.get(\"info\", {})\n    task = info.get(\"task\", {})\n\n    user = (\n        task.get(\"user\") or \n        result.get(\"User\") or \n        result.get(\"user\")\n    )\n\n    command = (\n        result.get(\"data\", {}).get(\"command_line\") or\n        result.get(\"data.command_line\")\n    )\n\n    src_ip = result.get(\"data\", {}).get(\"src\", {}).get(\"ip\") or result.get(\"data.src.ip\")\n    src_port = result.get(\"data\", {}).get(\"src\", {}).get(\"port\") or result.get(\"data.src.port\")\n\n    dst_ip = result.get(\"data\", {}).get(\"dst\", {}).get(\"ip\") or result.get(\"data.dst.ip\")\n    dst_port = result.get(\"data\", {}).get(\"dst\", {}).get(\"port\") or result.get(\"data.dst.port\")\n    list_cmd_line = result.get(\"list_cmd_line\")\n    # Construction automatique du HTML : on affiche seulement si NON VIDE\n    lines = []\n\n    if command:\n        lines.append(f\"<li><strong>Command line:</strong> {command}</li>\")\n\n    if user:\n        lines.append(f\"<li><strong>User:</strong> {user}</li>\")\n    if list_cmd_line:\n        lines.append(f\"<li><strong>list_cmd_line:</strong> {list_cmd_line}</li>\")\n    if src_ip or src_port:\n        lines.append(f\"<li><strong>Source:</strong> {abuse_link(src_ip)}:{src_port or 'N/A'}</li>\")\n\n    if dst_ip or dst_port:\n        lines.append(f\"<li><strong>Destination:</strong> {abuse_link(dst_ip)}:{dst_port or 'N/A'}</li>\")\n    \n    for f in [\"EventCode\", \"EventType\", \"TargetObject\"]:\n        if result.get(f):\n            lines.append(f\"<li><strong>{f}:</strong> {result[f]}</li>\")\n\n    if lines:\n        body[\"alert_source_ref\"] = \"<ul>\\n\" + \"\\n\".join(lines) + \"\\n</ul>\"\n    else:\n        body[\"alert_source_ref\"] = \"<p>Aucune information disponible.</p>\"\n\n    # Titre dynamique\n    search_name = body.get(\"search_name\", \"Detection\")\n    host = result.get(\"host\", \"Unknown Host\")\n    result[\"alert_title\"] = f\"{search_name} sur {host}\"\n\n    # Gestion SAFE du UtcTime (fallback multiple)\n    body[\"UtcTime\"] = (\n        info.get(\"utc_time\") or\n        result.get(\"UtcTime\") or\n        result.get(\"event_time\") or\n        result.get(\"_time\") or\n        datetime.datetime.utcnow().isoformat()\n    )\n\n    # Gestion de la sévérité (fallback si absent)\n    body[\"alert_severity_id\"] = (\n        result.get(\"alert_severity_id\") or \n        body.get(\"alert_severity_id\") or \n        2  # fallback safe\n    )\n\n    body[\"result\"] = result\n    item.json[\"body\"] = body\n\nreturn _input.all()\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -151,7 +151,7 @@
     },
     {
       "parameters": {
-        "fromEmail": "hello@demomailtrap.co",
+        "fromEmail": "projetgr604@gmail.com",
         "toEmail": "projetgr604@gmail.com",
         "subject": "=Critical Alert: {{$json.body.result.alert_title}}",
         "html": "=<div style=\"font-family: Arial, sans-serif; background: #f4f4f4; border-radius: 12px; padding: 18px; border-left: 6px solid #d9534f; color: #333;\">\n  \n  <h1 style=\"font-size: 22px; font-weight: bold; margin-bottom: 6px; color: #c9302c;\">\n    🚨 Alerte Critique Déclenchée\n  </h1>\n\n  <p style=\"font-size: 15px; line-height: 1.5;\">\n    Une alerte critique a été déclenchée le \n    <strong>{{ $json.body.result[\"info.utc_time\"] || \"N/A\" }}</strong>,\n    concernant l’hôte \n    <strong>{{ $json.body.result.host || \"N/A\" }}</strong>\n    pour le client\n    <strong>DunderMifflin</strong>.\n  </p>\n\n  <div style=\"margin-top: 14px;\">\n    <span style=\"font-weight: bold;\">Titre de l’alerte :</span><br>\n    {{ $json.body.result.alert_title }}\n  </div>\n\n  <div style=\"margin-top: 14px;\">\n    <span style=\"font-weight: bold;\">Description :</span><br>\n    {{ $json.body.result.alert_description }}\n  </div>\n\n  <div style=\"margin-top: 14px; font-size: 15px;\">\n    Merci de traiter cette alerte <strong>dans les plus brefs délais</strong> \n    afin de garantir la continuité et la sécurité du service.\n  </div>\n\n  <div style=\"margin-top: 18px;\">\n    <a href=\"{{ $json.body.results_link }}\" target=\"_blank\"\n       style=\"background:#0275d8; color:#ffffff; padding:10px 16px; border-radius:6px; text-decoration:none; font-size:15px; display:inline-block;\">\n       🔎 Ouvrir l’alerte dans SPLUNK\n    </a>\n  </div>\n\n</div>\n",
@@ -168,8 +168,8 @@
       "webhookId": "e0abcea7-a559-4fe3-bfec-164c64d4aede",
       "credentials": {
         "smtp": {
-          "id": "zwUPJis5BrSpCmWW",
-          "name": "SMTP account"
+          "id": "JNKzOrjXY6081W5e",
+          "name": "gmail"
         }
       }
     },
@@ -250,7 +250,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "0cf9c4ec-358b-4e6d-93b0-0fcef59a7c76",
+  "versionId": "6cb192dc-24ff-405a-b98c-bf654ba50bed",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "515868e636a691e96026934c5a1f44ca0ff9e4615609ee294de4a6ee5d27ee0b"
