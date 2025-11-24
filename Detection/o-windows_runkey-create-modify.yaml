@@ -1,0 +1,28 @@
+title: Modification of Run Registry Key via Sysmon
+id: pseudo-sigma-sysmon-runkey-13
+status: experimental
+
+logsource:
+  product: windows
+  service: sysmon
+  category: registry_event
+
+detection:
+  selection_event:
+    EventCode: 13
+    TargetObject|contains: 
+      - "\Software\Microsoft\Windows\CurrentVersion\Run"
+
+  filter_system_user:
+    User: 
+      - "NT AUTHORITY\\SYSTEM"
+
+  condition: selection_event and not filter_system_user
+
+fields:
+  - EventCode
+  - TargetObject
+  - Details
+  - User
+  - host
+  - _time
