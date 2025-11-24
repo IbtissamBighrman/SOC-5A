@@ -1,29 +1,57 @@
 title: Détection de multiples commandes d'énumération
-description: Détecte lorsqu’un utilisateur exécute plusieurs commandes typiques d’énumération.
+description: Détecte l’exécution de multiples commandes typiques d’énumération système sur Linux.
 author: Équipe SOC
 logsource:
     product: linux
     service: kunai
+
 detection:
     selection:
         command_line:
-            - '*uname -a*'
             - '*whoami*'
-            - 'id'
+            - '*id*'
             - '*ps aux*'
-            - '*netstat -an*'
-            - '*ss -tunlp*'
             - '*ip a*'
+            - '*ip addr*'
+            - '*ifconfig*'
+            - '*netstat*'
+            - '*ss -tuna*'
+            - '*ss -ltnp*'
+            - '*ls /etc*'
             - '*ls /home*'
             - '*cat /etc/passwd*'
+            - '*cat /etc/group*'
+            - '*hostnamectl*'
+            - '*lsblk*'
+            - '*df -h*'
+            - '*free -m*'
+            - '*uname -a*'
+            - '*uname -r*'
+            - '*last*'
+            - '*who*'
+            - '*w*'
+            - '*groups*'
+            - '*lsof*'
+            - '*journalctl*'
+            - '*dmesg*'
+            - '*crontab -l*'
+            - '*systemctl list-units*'
+            - '*sudo -l*'
+            - '*find / -maxdepth 1*'
+            - '*env*'
+            - '*printenv*'
+
     aggregation:
         group_by:
             - host
             - info.task.user
         count: command_count
+
     condition: selection
+
 fields:
     - host
     - info.task.user
-    - list_cmd_line
+    - command_line
+
 level: medium
