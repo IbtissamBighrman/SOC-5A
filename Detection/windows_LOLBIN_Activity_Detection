@@ -1,0 +1,56 @@
+title: LOLBIN Activity Detection (Direct SPL Conversion)
+id: f5c9e0e8-8b34-4fdb-92f4-LOLBIN
+description: Detects the usage of various LOLBINs based on Sysmon EventCode 1, converted directly from provided SPL.
+status: experimental
+author: SOC AYMEN
+logsource:
+  product: windows
+  service: sysmon
+  definition: 'EventCode 1 = Process Create'
+
+detection:
+  selection_base:
+    EventCode: 1
+
+  mshta:
+    Image|endswith: 'mshta.exe'
+    CommandLine|contains: 'javascript:'
+
+  regsvr32:
+    Image|endswith: 'regsvr32.exe'
+    CommandLine|contains: 'scrobj.dll'
+
+  rundll32:
+    Image|endswith: 'rundll32.exe'
+    CommandLine|contains: 'url.dll,FileProtocolHandler'
+
+  certutil_1:
+    Image|endswith: 'certutil.exe'
+    CommandLine|contains: '-urlcache'
+
+  certutil_2:
+    Image|endswith: 'certutil.exe'
+    CommandLine|contains: '-decode'
+
+  certutil_3:
+    Image|endswith: 'certutil.exe'
+    CommandLine|contains: '-hashfile'
+
+  wmic_1:
+    Image|endswith: 'wmic.exe'
+    CommandLine|contains: 'process'
+
+  wmic_2:
+    Image|endswith: 'wmic.exe'
+    CommandLine|contains: 'os get'
+
+  condition: selection_base and (mshta or regsvr32 or rundll32 or certutil_1 or certutil_2 or certutil_3 or wmic_1 or wmic_2)
+
+fields:
+  - Image
+  - CommandLine
+  - User
+  - ParentImage
+  - ParentCommandLine
+
+level: high
